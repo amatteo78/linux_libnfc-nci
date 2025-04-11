@@ -15,6 +15,9 @@
  *
  ******************************************************************************/
 
+//section add to compatibility with libgpiod 2.x
+#include <gpiod.h>
+//end section
 #include <errno.h>
 #include <fcntl.h>
 #ifdef ANDROID
@@ -40,6 +43,15 @@
 #define FRAGMENTSIZE_MAX PHNFC_I2C_FRAGMENT_SIZE
 extern phTmlNfc_i2cfragmentation_t fragmentation_enabled;
 extern phTmlNfc_Context_t* gpphTmlNfc_Context;
+
+//section add to compatibility with libgpiod 2.x
+struct gpiod_chip *ven_chip = NULL;
+struct gpiod_chip *irq_chip = NULL;
+struct gpiod_chip *fwdnld_chip = NULL;
+struct gpiod_line_request *VEN_line = NULL;
+struct gpiod_line_request *IRQ_line = NULL;
+struct gpiod_line_request *FWDNLD_line = NULL;
+//end section
 
 NfccAltTransport::NfccAltTransport() {
   iEnableFd = 0;
@@ -390,63 +402,136 @@ int NfccAltTransport::verifyPin(int pin, int isoutput, int edge) {
   }
   return (0);
 }
+
+/*************************************************************************************************
+   **
+   ** Function         gpio_set_ven, gpio_set_fwdl (not Official)
+   **
+   ** Description      function to set pin VEN and FWDNLD to use with libgpiod 2.x
+   **
+   ** Parameters       value
+   **
+   ** Returns          
+   **
+   **                  not Officiale from NXP add from matteo.abrile@gmail.com 
+   **
+   ***********************************************************************************************/
+
 void NfccAltTransport::gpio_set_ven(int value) {
-  if (iEnableFd > 0) {
-    if (value == 0) {
-      write(iEnableFd, "0", 1);
-    } else {
-      write(iEnableFd, "1", 1);
-    }
-    usleep(10 * 1000);
+  if (VEN_line) {
+    gpiod_line_request_set_value(VEN_line, PIN_ENABLE, value ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE);
   }
+  usleep(10*1000); // wait for 10ms
 }
 
 void NfccAltTransport::gpio_set_fwdl(int value) {
-  if (iFwDnldFd > 0) {
-    if (value == 0) {
-      write(iFwDnldFd, "0", 1);
-    } else {
-      write(iFwDnldFd, "1", 1);
-    }
-    usleep(10 * 1000);
+  if (FWDNLD_line) {
+    gpiod_line_request_set_value(FWDNLD_line, PIN_FWDNLD, value ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE);
   }
+  usleep(10*1000); // wait for 10ms
 }
+
+/*************************************************************************************************
+   **
+   ** Function         wait4interrupt (not Official)
+   **
+   ** Description      function to update when IRQ comes to use with libgpiod 2.x
+   **
+   ** Parameters       void
+   **
+   ** Returns          
+   **
+   **                  not Officiale from NXP add from matteo.abrile@gmail.com 
+   **
+   ***********************************************************************************************/
 
 void NfccAltTransport::wait4interrupt(void) {
-  /* Open STREAMS device. */
-  struct pollfd fds[1];
-  fds[0].fd = iInterruptFd;
-  fds[0].events = POLLPRI;
-  int timeout_msecs = -1;  // 100000;
-  int ret;
-  // usleep(500000);
-  while (!GetIrqState(NULL)) {
-    // Wait for an edge on the GPIO pin to get woken up
-    ret = poll(fds, 1, timeout_msecs);
-    if (ret != 1) {
-      NXPLOG_TML_D("wait4interrupt() %d - %s, ", ret, strerror(errno));
+  if (!IRQ_line) return;
+
+  while (true) {
+    int value = gpiod_line_request_get_value(IRQ_line, PIN_INT);
+    if (value < 0) {
+      NXPLOG_TML_E("Errore lettura IRQ: %s", strerror(errno));
+      break; // or retry
     }
+    if (value == 1) break;
+    usleep(100); // avoid busy loop
   }
+
+  NXPLOG_TML_D("IRQ high comes");
 }
 
-/*****************************************************************************
+/*************************************************************************************************
    **
-   ** Function         ConfigurePin
+   ** Function         ConfigurePin (not Official)
    **
-   ** Description      Configure Pins such as IRQ, VEN, Firmware Download
+   ** Description      Configure Pins such as IRQ, VEN, Firmware Download using for libgpiod 2.X
    **
    ** Parameters       none
    **
-   ** Returns           NFCSTATUS_SUCCESS - on Success/ -1 on Failure
-   ****************************************************************************/
-int NfccAltTransport::ConfigurePin()
-{
-  // Assign IO pins
-  iInterruptFd = verifyPin(PIN_INT, 0, EDGE_RISING);
-  if (iInterruptFd < 0) return (NFCSTATUS_INVALID_DEVICE);
-  iEnableFd = verifyPin(PIN_ENABLE, 1, EDGE_NONE);
-  if (iEnableFd < 0) return (NFCSTATUS_INVALID_DEVICE);
-  iFwDnldFd = verifyPin(PIN_FWDNLD, 1, EDGE_NONE);
-  if (iFwDnldFd < 0) return (NFCSTATUS_INVALID_DEVICE);
+   ** Returns          NFCSTATUS_SUCCESS - on Success/ -1 on Failure
+   **
+   **                  not Officiale from NXP add from matteo.abrile@gmail.com 
+   **
+   ***********************************************************************************************/
+
+int NfccAltTransport::ConfigurePin() {
+  // select chip
+  ven_chip = gpiod_chip_open(CHIP_ENABLE);
+  fwdnld_chip = gpiod_chip_open(CHIP_FWDNLD);
+  irq_chip = gpiod_chip_open(CHIP_INIT);
+
+  if (!ven_chip || !fwdnld_chip || !irq_chip) {
+    NXPLOG_TML_E("Error during chips open");
+    return -1;
+  }
+
+  // same Config
+  struct gpiod_request_config *req_cfg = gpiod_request_config_new();
+  gpiod_request_config_set_consumer(req_cfg, "nxp-nfc");
+
+  // IRQ INPUT
+  struct gpiod_line_settings *settings_irq = gpiod_line_settings_new();
+  gpiod_line_settings_set_direction(settings_irq, GPIOD_LINE_DIRECTION_INPUT);
+  gpiod_line_settings_set_edge_detection(settings_irq, GPIOD_LINE_EDGE_RISING);
+  gpiod_line_settings_set_bias(settings_irq, GPIOD_LINE_BIAS_DISABLED);
+
+  struct gpiod_line_config *config_irq = gpiod_line_config_new();
+  unsigned int irq_offsets[] = { PIN_INT };
+  gpiod_line_config_add_line_settings(config_irq, irq_offsets, 1, settings_irq);
+  IRQ_line = gpiod_chip_request_lines(irq_chip, req_cfg, config_irq);
+
+  // delay before configure VEN and FWDNLD
+  usleep(10 * 1000);
+
+  // VEN e FWDNLD
+  struct gpiod_line_settings *settings_out = gpiod_line_settings_new();
+  gpiod_line_settings_set_direction(settings_out, GPIOD_LINE_DIRECTION_OUTPUT);
+  gpiod_line_settings_set_output_value(settings_out, GPIOD_LINE_VALUE_ACTIVE);
+  gpiod_line_settings_set_active_low(settings_out, false);
+
+  struct gpiod_line_config *config_out = gpiod_line_config_new();
+
+  unsigned int ven_offsets[] = { PIN_ENABLE };
+  gpiod_line_config_add_line_settings(config_out, ven_offsets, 1, settings_out);
+  VEN_line = gpiod_chip_request_lines(ven_chip, req_cfg, config_out);
+
+  unsigned int fwd_offsets[] = { PIN_FWDNLD };
+  gpiod_line_config_add_line_settings(config_out, fwd_offsets, 1, settings_out);
+  FWDNLD_line = gpiod_chip_request_lines(fwdnld_chip, req_cfg, config_out);
+
+  // final check
+  if (!IRQ_line || !VEN_line || !FWDNLD_line) {
+    NXPLOG_TML_E("Errors during lines configurations");
+    return -1;
+  }
+
+  // Cleanup structures
+  gpiod_line_settings_free(settings_irq);
+  gpiod_line_settings_free(settings_out);
+  gpiod_line_config_free(config_irq);
+  gpiod_line_config_free(config_out);
+  gpiod_request_config_free(req_cfg);
+
   return NFCSTATUS_SUCCESS;
 }
