@@ -20,6 +20,7 @@
 #define ANDROID_HARDWARE_HAL_NXPNFC_V1_0_H
 #include <vector>
 #include <string>
+#include <cstdint>
 
 #define MAX_IOCTL_TRANSCEIVE_CMD_LEN 256
 #define MAX_IOCTL_TRANSCEIVE_RESP_LEN 256

@@ -15,6 +15,9 @@
  *  limitations under the License.
  *
  ******************************************************************************/
+
+#include <cstdint>
+
 #ifndef ANDROID_HARDWARE_HAL_NXPESE_V1_0_H
 #define ANDROID_HARDWARE_HAL_NXPESE_V1_0_H
 

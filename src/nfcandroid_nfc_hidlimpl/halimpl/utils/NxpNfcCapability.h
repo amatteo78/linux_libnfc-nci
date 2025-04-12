@@ -18,6 +18,7 @@
 #ifndef __CAP_H__
 #define __CAP_H__
 #include "Nxp_Features.h"
+#include <cstdint>
 #define pConfigFL (capability::getInstance())
 
 class capability {

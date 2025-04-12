@@ -20,6 +20,7 @@
 #define NXP_FEATURES_H
 #include <unistd.h>
 #include <string>
+#include <cstdint>
 
 #define FW_MOBILE_MAJOR_NUMBER_PN553 0x01
 #define FW_MOBILE_MAJOR_NUMBER_PN81A 0x02

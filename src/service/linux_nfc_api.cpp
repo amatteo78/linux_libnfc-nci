@@ -379,9 +379,9 @@ int doWriteT4tData(unsigned char *command, unsigned char *ndef_buffer, int ndef_
 int doReadT4tData(unsigned char *command, unsigned char *ndef_buffer, int *ndef_buffer_length)
 {
     int ret = 0;
-    if (ndef_buffer == NULL || ndef_buffer_length <= 0) {
-      NXPLOG_API_E ("%s: invalide buffer!", __FUNCTION__);
-      return NFA_STATUS_FAILED;
+    if (ndef_buffer == NULL || ndef_buffer_length == NULL || *ndef_buffer_length <= 0) {
+        NXPLOG_API_E ("%s: invalide buffer!", __FUNCTION__);
+        return NFA_STATUS_FAILED;
     }
     ret = t4tNfceeManager_doReadT4tData(command, ndef_buffer, ndef_buffer_length);
     return ret;

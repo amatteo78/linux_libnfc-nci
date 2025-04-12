@@ -20,6 +20,7 @@
 #include <string>
 #include <time.h>
 #include <vector>
+#include <cstdint>
 
 /*Time spent in Active mode per count provided by NFCC*/
 static const uint32_t ACTIVE_TIME_PER_TIMER_COUNT_IN_MILLISEC = 20;
