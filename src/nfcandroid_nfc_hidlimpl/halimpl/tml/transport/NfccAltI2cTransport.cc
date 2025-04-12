@@ -32,7 +32,29 @@
 #include <string.h>
 #include "phNxpNciHal_utils.h"
 
+#include <pthread.h>
+
 extern phTmlNfc_Context_t* gpphTmlNfc_Context;
+
+/*******************************************************************************
+**
+** Function         EmulateLogDelay (not Officiale)
+**
+** Description      Need to fix problem during read phase, introduce delay,
+**                  do for and use mutex lock
+**
+**                  not Officiale from NXP add from matteo.abrile@gmail.com
+**
+*******************************************************************************/
+
+pthread_mutex_t wait_log_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void EmulateLogDelay() {
+  pthread_mutex_lock(&wait_log_mutex);
+  volatile int sum = 0;
+  for (int i = 0; i < 100000; ++i) sum += i;
+  pthread_mutex_unlock(&wait_log_mutex);
+}
 
 /*******************************************************************************
 **
@@ -103,6 +125,7 @@ NFCSTATUS NfccAltI2cTransport::OpenAndConfigure(pphTmlNfc_Config_t pConfig,
 int NfccAltI2cTransport::Read(void* pDevHandle, uint8_t* pBuffer,
                               int nNbBytesToRead) {
   NXPLOG_TML_D("%s Enter", __func__);
+  EmulateLogDelay();
   int ret_Read;
   int numRead = 0;
   uint16_t totalBtyesToRead = 0;
@@ -194,6 +217,7 @@ int NfccAltI2cTransport::Read(void* pDevHandle, uint8_t* pBuffer,
     }
   }
   NXPLOG_TML_D("%s exit", __func__);
+  EmulateLogDelay();
   return numRead;
 }
 
