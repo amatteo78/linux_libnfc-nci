@@ -15,10 +15,7 @@
  *
  ******************************************************************************/
 
-//section add to compatibility with libgpiod 2.x
-#include <gpiod.h>
-//end section
-#include <errno.h>
+ #include <errno.h>
 #include <fcntl.h>
 #ifdef ANDROID
 #include <hardware/nfc.h>
@@ -34,6 +31,11 @@
 #include <phNxpLog.h>
 #include <string.h>
 #include "phNxpNciHal_utils.h"
+//section add to compatibility with libgpiod 2.x
+#include <gpiod.h>
+//section to add dynamic read gpiochip and pin
+#include <phNxpConfig.h>
+//end section
 
 #define CRC_LEN 2
 #define NORMAL_MODE_HEADER_LEN 3
@@ -51,6 +53,13 @@ struct gpiod_chip *fwdnld_chip = NULL;
 struct gpiod_line_request *VEN_line = NULL;
 struct gpiod_line_request *IRQ_line = NULL;
 struct gpiod_line_request *FWDNLD_line = NULL;
+//section to add dynamic read gpiochip and pin
+char chip_ven_path[64] = "/dev/gpiochip3";
+char chip_irq_path[64] = "/dev/gpiochip6";
+char chip_fwd_path[64] = "/dev/gpiochip4";
+unsigned long pin_ven = 1;
+unsigned long pin_irq = 3;
+unsigned long pin_fwd = 9;
 //end section
 
 NfccAltTransport::NfccAltTransport() {
@@ -476,10 +485,18 @@ void NfccAltTransport::wait4interrupt(void) {
    ***********************************************************************************************/
 
 int NfccAltTransport::ConfigurePin() {
+  // section to add dynamic read gpiochip and pin
+  GetNxpStrValue("NXP_GPIO_VEN_CHIP", chip_ven_path, sizeof(chip_ven_path));
+  GetNxpNumValue("NXP_GPIO_VEN_PIN", &pin_ven, sizeof(pin_ven));
+  GetNxpStrValue("NXP_GPIO_IRQ_CHIP", chip_irq_path, sizeof(chip_irq_path));
+  GetNxpNumValue("NXP_GPIO_IRQ_PIN", &pin_irq, sizeof(pin_irq));
+  GetNxpStrValue("NXP_GPIO_FWD_CHIP", chip_fwd_path, sizeof(chip_fwd_path));
+  GetNxpNumValue("NXP_GPIO_FWD_PIN", &pin_fwd, sizeof(pin_fwd));
+
   // select chip
-  ven_chip = gpiod_chip_open(CHIP_ENABLE);
-  fwdnld_chip = gpiod_chip_open(CHIP_FWDNLD);
-  irq_chip = gpiod_chip_open(CHIP_INIT);
+  ven_chip = gpiod_chip_open(chip_ven_path);
+  fwdnld_chip = gpiod_chip_open(chip_fwd_path);
+  irq_chip = gpiod_chip_open(chip_irq_path);
 
   if (!ven_chip || !fwdnld_chip || !irq_chip) {
     NXPLOG_TML_E("Error during chips open");
@@ -497,7 +514,7 @@ int NfccAltTransport::ConfigurePin() {
   gpiod_line_settings_set_bias(settings_irq, GPIOD_LINE_BIAS_DISABLED);
 
   struct gpiod_line_config *config_irq = gpiod_line_config_new();
-  unsigned int irq_offsets[] = { PIN_INT };
+  unsigned int irq_offsets[] = { (unsigned int)pin_irq };
   gpiod_line_config_add_line_settings(config_irq, irq_offsets, 1, settings_irq);
   IRQ_line = gpiod_chip_request_lines(irq_chip, req_cfg, config_irq);
 
@@ -512,11 +529,11 @@ int NfccAltTransport::ConfigurePin() {
 
   struct gpiod_line_config *config_out = gpiod_line_config_new();
 
-  unsigned int ven_offsets[] = { PIN_ENABLE };
+  unsigned int ven_offsets[] = { (unsigned int)pin_ven };
   gpiod_line_config_add_line_settings(config_out, ven_offsets, 1, settings_out);
   VEN_line = gpiod_chip_request_lines(ven_chip, req_cfg, config_out);
 
-  unsigned int fwd_offsets[] = { PIN_FWDNLD };
+  unsigned int fwd_offsets[] = { (unsigned int)pin_fwd };
   gpiod_line_config_add_line_settings(config_out, fwd_offsets, 1, settings_out);
   FWDNLD_line = gpiod_chip_request_lines(fwdnld_chip, req_cfg, config_out);
 
