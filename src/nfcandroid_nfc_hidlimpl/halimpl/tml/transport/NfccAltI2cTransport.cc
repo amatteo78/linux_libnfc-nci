@@ -33,8 +33,11 @@
 #include "phNxpNciHal_utils.h"
 
 #include <pthread.h>
+#include <phNxpConfig.h>
 
 extern phTmlNfc_Context_t* gpphTmlNfc_Context;
+
+static uint8_t i2c_address = 0x28;  // default fallback
 
 /*******************************************************************************
 **
@@ -79,6 +82,11 @@ NFCSTATUS NfccAltI2cTransport::OpenAndConfigure(pphTmlNfc_Config_t pConfig,
   int Fd = -1;
   // Assign IO pins
   status_value = ConfigurePin();
+  // section to get dyanmic i2c address
+  unsigned long val = 0;
+  if (GetNxpNumValue(NAME_NXP_I2C_ADDRESS, &val, sizeof(val))) {
+    i2c_address = (uint8_t)val;
+  }
   if(status_value == -1)
     return NFCSTATUS_INVALID_DEVICE;
   NXPLOG_TML_D("NFCHW - open I2C bus - %s\n", I2C_BUS);
@@ -91,10 +99,10 @@ NFCSTATUS NfccAltI2cTransport::OpenAndConfigure(pphTmlNfc_Config_t pConfig,
     return (NFCSTATUS_INVALID_DEVICE);
   }
   *pLinkHandle = (void*)((intptr_t)Fd);
-  NXPLOG_TML_D("NFC - open I2C device - 0x%02x\n", I2C_ADDRESS);
+  NXPLOG_TML_D("NFC - open I2C device - 0x%02x\n", i2c_address);
 
   // I2C slave address
-  if (ioctl(Fd, I2C_SLAVE, I2C_ADDRESS) < 0) {
+  if (ioctl(Fd, I2C_SLAVE, i2c_address) < 0) {
     NXPLOG_TML_E("Cannot select I2C address (%s)\n", strerror(errno));
     Close(pLinkHandle);
     return (NFCSTATUS_INVALID_DEVICE);
