@@ -24,14 +24,14 @@
  
  //start section to configure i2c_address, i2c_bus, irq = pin_int, ven = pin_enable, fwdnld = pin_fwdnld to compatibility with libgpiod 2.x
  #define I2C_ADDRESS 0x28
- #define I2C_BUS "/dev/i2c-1"
+ #define I2C_BUS "/dev/i2c-0"
  #define SPI_BUS "/dev/spidev0.0"
- #define PIN_INT 3
- #define CHIP_INIT "/dev/gpiochip6"
- #define PIN_ENABLE 1
+ #define PIN_INT 22
+ #define CHIP_INIT "/dev/gpiochip2"
+ #define PIN_ENABLE 21
  #define CHIP_ENABLE "/dev/gpiochip3"
- #define PIN_FWDNLD 9
- #define CHIP_FWDNLD "/dev/gpiochip4"
+ #define PIN_FWDNLD 21
+ #define CHIP_FWDNLD "/dev/gpiochip2"
  //end section
  #define EDGE_NONE 0
  #define EDGE_RISING 1

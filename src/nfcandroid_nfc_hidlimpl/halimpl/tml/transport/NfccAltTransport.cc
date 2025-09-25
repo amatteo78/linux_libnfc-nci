@@ -55,11 +55,11 @@ struct gpiod_line_request *IRQ_line = NULL;
 struct gpiod_line_request *FWDNLD_line = NULL;
 //section to add dynamic read gpiochip and pin
 char chip_ven_path[64] = "/dev/gpiochip3";
-char chip_irq_path[64] = "/dev/gpiochip6";
-char chip_fwd_path[64] = "/dev/gpiochip4";
-unsigned long pin_ven = 1;
-unsigned long pin_irq = 3;
-unsigned long pin_fwd = 9;
+char chip_irq_path[64] = "/dev/gpiochip2";
+char chip_fwd_path[64] = "/dev/gpiochip2";
+unsigned long pin_ven = 21;
+unsigned long pin_irq = 22;
+unsigned long pin_fwd = 21;
 //end section
 
 NfccAltTransport::NfccAltTransport() {
@@ -460,7 +460,7 @@ void NfccAltTransport::wait4interrupt(void) {
   while (true) {
     int value = gpiod_line_request_get_value(IRQ_line, PIN_INT);
     if (value < 0) {
-      NXPLOG_TML_E("Errore lettura IRQ: %s", strerror(errno));
+      NXPLOG_TML_E("Read error on IRQ: %s", strerror(errno));
       break; // or retry
     }
     if (value == 1) break;
@@ -510,7 +510,6 @@ int NfccAltTransport::ConfigurePin() {
   // IRQ INPUT
   struct gpiod_line_settings *settings_irq = gpiod_line_settings_new();
   gpiod_line_settings_set_direction(settings_irq, GPIOD_LINE_DIRECTION_INPUT);
-  gpiod_line_settings_set_edge_detection(settings_irq, GPIOD_LINE_EDGE_RISING);
   gpiod_line_settings_set_bias(settings_irq, GPIOD_LINE_BIAS_DISABLED);
 
   struct gpiod_line_config *config_irq = gpiod_line_config_new();

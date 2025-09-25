@@ -72,3 +72,6 @@ Makefile
 # Editor
 *.orig
 *.rej
+
+# Tar
+*.tar.gz
